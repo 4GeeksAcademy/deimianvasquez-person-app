@@ -41,25 +41,111 @@ def sitemap():
 def health_check():
     return "ok"
 
-
+# consulta todas las personas de mi base de datos
 @app.route("/person", methods=["GET"])
 def get_all():
-    if request.method == "GET":
-        people = Person.query.all()
-
-        if people:
-            return jsonify(list(map(lambda item: item.serialize(), people))), 200
+    
+    people = Person.query.all()
+    return jsonify(list(map(lambda item: item.serialize(), people))), 200
+        
            
-
+# consulta por id las personas
 @app.route("/person/<int:theid>", methods=["GET"])
 def get_one_person(theid=None):
-    if request.method == "GET":
-        people = Person.query.get(theid)
+    people = Person.query.get(theid)
+    if people:
+        return jsonify(people.serialize()), 200
+    else:
+        return jsonify({"message":"person not found"}), 404
 
-        if people:
-            return jsonify(people.serialize()), 200
-        else:
-            return jsonify({"message":"person not found"}), 404
+
+# agrega una nueva persona a mi base de datos
+@app.route("/person", methods=["POST"])
+def add_new_person():
+    body = request.json
+
+    if body.get("name") is None:
+        return jsonify({"message":"wrong property"}),400
+    if body.get("lastname") is None:
+        return jsonify({"message":"wrong property"}),400
+    
+    person = Person(name=body.get("name"), lastname=body.get("lastname"))
+
+    db.session.add(person)
+
+    try:
+        db.session.commit()  
+        return jsonify({"message":"user registered success"}), 201  
+
+    except Exception as error:
+        print(error)
+        db.session.rollback()
+        return jsonify({"message":f"error: {error}"}), 500
+
+
+# editamos una persona por su identificador único (id)
+@app.route("/person/<int:theid>", methods=["PUT"])
+def update_person(theid=None):
+    if theid is None:
+        return jsonify({"message":"Wrong property"}), 400
+
+    body = request.json
+
+    if body.get("name") is None:
+        return jsonify({"message":"wrong property"}),400
+    if body.get("lastname") is None:
+        return jsonify({"message":"wrong property"}),400
+
+    person = Person.query.get(theid)
+
+    if person is None:
+        return jsonify({"message":"the user not found"}), 404
+
+    person.name = body.get("name")
+    person.lastname = body.get("lastname")
+
+    try:
+        db.session.commit()
+        return jsonify({"message":"user updated success"}), 201
+    except Exception as error:
+        print(error)
+        db.session.rollback()
+        return jsonify({"message":f"error: {error}"}), 500
+
+    
+
+# Eliminamos a las personas por su identificador único (id)
+@app.route("/person/<int:position>", methods=["DELETE"])
+def delete_person(position=None):
+    person = Person.query.get(position)
+
+    if person is None:
+        return jsonify({"message":"the user not found"}), 404   
+
+    if person is not None:
+        db.session.delete(person)
+
+        try:
+            db.session.commit()
+            return jsonify([]), 204
+        except Exception as error:
+            print(error)
+            db.session.rollback()
+            return jsonify({"message":f"error: {error.args}"})
+
+
+# query usados en este proyecto 
+# Model.query.all() --> consultamos todas los registro de la tabla
+# Model.query.get(theid) --> consultamos un registro de la clase pasandole el id
+# Crear un registro en la tabla
+## instanciamos la clase y le agregamos los parametros a guardar
+### instance =  Model(name=body.get("name"), lastname=body.get("lastname"))
+### db.session.add(Model) --> agregamos en la session (aquí aún no se guarda)
+### db.session.commit() --> aquí se guarda el registro en la base de datos
+
+# borrar 
+##  db.session.delete(Model)
+
 
 
 # this only runs if `$ python src/app.py` is executed
